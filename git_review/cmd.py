@@ -128,17 +128,18 @@ def run_command_status(*argv, **kwargs):
         else:
             argv = shlex.split(str(argv[0]))
     stdin = kwargs.pop('stdin', None)
+    print_directly = kwargs.pop('print_directly', False)
     newenv = os.environ.copy()
     newenv['LANG'] = 'C'
     newenv['LANGUAGE'] = 'C'
     newenv.update(kwargs)
     p = subprocess.Popen(argv,
                          stdin=subprocess.PIPE if stdin else None,
-                         stdout=subprocess.PIPE,
+                         stdout=None if print_directly else subprocess.PIPE,
                          stderr=subprocess.STDOUT,
                          env=newenv, universal_newlines=True)
     (out, nothing) = p.communicate(stdin)
-    return (p.returncode, out.strip())
+    return (p.returncode, '' if print_directly else out.strip())
 
 
 def run_command(*argv, **kwargs):
@@ -239,15 +240,12 @@ def run_custom_script(action):
              os.path.join(git_dir, "hooks", script_file)]
     for fpath in paths:
         if os.path.isfile(fpath) and os.access(fpath, os.X_OK):
-            status, output = run_command_status(fpath)
+            status, output = run_command_status(fpath, print_directly=True)
             returns.append((status, output, fpath))
 
     for (status, output, path) in returns:
         if status:
             raise CustomScriptException(status, output, [path], {})
-        elif output and VERBOSE:
-            print("script %s output is:" % (path))
-            print(output)
 
 
 def git_config_get_value(section, option, default=None, as_bool=False):
